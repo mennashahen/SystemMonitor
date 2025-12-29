@@ -1,0 +1,11 @@
+1-docker exec -it monitor_dashboard /bin/bash
+
+
+2-echo ">>> STARTING STRESS TEST (CPU + RAM + NETWORK)..." && \
+python3 -c "import urllib.request; print('-> Network Spike Started...'); urllib.request.urlretrieve('http://speedtest.tele2.net/100MB.zip', '/dev/null')" & \
+python3 -c "print('-> Eating RAM (400MB)...'); a=' '*400*1024*1024; import time; time.sleep(15)" & \
+echo "-> Stressing CPU (4 Cores)..." && \
+for i in {1..4}; do yes > /dev/null & done; \
+sleep 15; \
+killall yes; \
+echo ">>> TEST FINISHED. SYSTEM RECOVERING..."

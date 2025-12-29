@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  system-monitor:
+    build: .
+    container_name: monitor_dashboard
+    privileged: true
+    ports:
+      - "8080:8000"
+    volumes:
+      - ./logs:/var/log/monitor
+      - ./web:/app/web

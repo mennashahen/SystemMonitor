@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEC-MONITOR | DUAL SENSOR</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #00ff41; 
+            --gpu-color: #ff9900; /* لون برتقالي للـ GPU */
+            --alert: #ff0055;
+            --bg: #0d0d0d;
+            --panel: #141414;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--primary);
+            font-family: 'Share Tech Mono', monospace;
+            padding: 20px;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid #333;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 255, 65, 0.05);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            color: #666;
+            border-left: 3px solid var(--primary);
+            padding-left: 10px;
+            margin-bottom: 5px;
+        }
+
+        .big-value { font-size: 2.5rem; font-weight: bold; }
+        .unit { font-size: 1rem; color: #444; }
+
+        /* تخصيص كارت الـ GPU */
+        .gpu-card .card-title { border-color: var(--gpu-color); color: var(--gpu-color); }
+        .gpu-card .big-value { color: var(--gpu-color); text-shadow: 0 0 10px rgba(255, 153, 0, 0.3); }
+
+        .chart-container {
+            grid-column: 1 / -1; /* الشارت ياخد العرض كله */
+            background: var(--panel);
+            border: 1px solid #333;
+            height: 350px;
+            padding: 10px;
+        }
+
+        .terminal {
+            grid-column: 1 / -1;
+            background: black;
+            border-top: 2px solid var(--primary);
+            padding: 10px;
+            height: 120px;
+            overflow: hidden;
+            font-size: 0.85rem;
+            color: #888;
+        }
+        .log-line { margin: 2px 0; border-bottom: 1px solid #111; }
+    </style>
+</head>
+<body>
+
+    <h2 style="border-bottom: 1px solid #333; padding-bottom:10px">/// SYSTEM_HARDWARE_MONITOR</h2>
+
+    <div class="grid-container">
+	    <div class="card">
+            <div class="card-title">NETWORK</div>
+            <div class="big-value" style="font-size: 1.5rem">
+                ⬇ <span id="net-rx">0</span> K<br>
+                ⬆ <span id="net-tx">0</span> K
+            </div>
+            <small>eth0 Interface</small>
+        </div>
+
+        <div class="card">
+            <div class="card-title">DISK HEALTH</div>
+            <div class="big-value" id="smart-val" style="color: var(--primary)">OK</div>
+            <small>SMART Status</small>
+        </div>
+        <div class="card">
+            <div class="card-title">CPU LOAD</div>
+            <div class="big-value"><span id="cpu-val">0</span><span class="unit">%</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">MEMORY</div>
+            <div class="big-value"><span id="ram-val">0</span><span class="unit">%</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">CPU TEMP</div>
+            <div class="big-value"><span id="temp-val">0</span><span class="unit">°C</span></div>
+        </div>
+
+        <div class="card gpu-card">
+            <div class="card-title">GPU TEMP</div>
+            <div class="big-value"><span id="gpu-val">0</span><span class="unit">°C</span></div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">DISK</div>
+            <div class="big-value"><span id="disk-val">0</span><span class="unit">GB</span></div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="performanceChart"></canvas>
+        </div>
+
+        <div class="terminal" id="console-log"></div>
+    </div>
+
+    <script src="data.js"></script>
+    <script>
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'CPU Temp', borderColor: '#00ff41', data: [], tension: 0.4 },
+                    { label: 'GPU Temp', borderColor: '#ff9900', data: [], tension: 0.4 } // خط برتقالي للـ GPU
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                scales: { y: { beginAtZero: true }, x: { display: false } }
+            }
+        });
+
+        function updateDashboard() {
+            const script = document.createElement('script');
+            script.src = 'data.js?t=' + new Date().getTime();
+            script.onload = () => {
+                if (typeof systemData !== 'undefined' && systemData.length > 0) {
+                    const latest = systemData[systemData.length - 1];
+// جوه دالة updateDashboard ...
+document.getElementById('net-rx').innerText = latest.netRx;
+document.getElementById('net-tx').innerText = latest.netTx;
+document.getElementById('smart-val').innerText = latest.smart;
+
+// تغيير لون الـ SMART لو فيه مشكلة
+if(latest.smart !== "OK") {
+    document.getElementById('smart-val').style.color = "red";
+} else {
+    document.getElementById('smart-val').style.color = "var(--primary)";
+}
+                    // تحديث الأرقام
+                    document.getElementById('cpu-val').innerText = latest.cpu;
+                    document.getElementById('ram-val').innerText = latest.ram;
+                    document.getElementById('disk-val').innerText = latest.disk;
+                    document.getElementById('temp-val').innerText = latest.cpuTemp;
+                    document.getElementById('gpu-val').innerText = latest.gpuTemp; // الرقم الجديد
+
+                    // تحديث الشارت
+                    chart.data.labels = systemData.map(d => d.time);
+                    chart.data.datasets[0].data = systemData.map(d => d.cpuTemp);
+                    chart.data.datasets[1].data = systemData.map(d => d.gpuTemp);
+                    chart.update();
+
+                    // تحديث التيرمينال
+                    const terminal = document.getElementById('console-log');
+                    const log = document.createElement('div');
+                    log.className = 'log-line';
+                    log.innerHTML = `[${latest.time}] SENSORS: CPU=${latest.cpuTemp}C | GPU=${latest.gpuTemp}C`;
+                    terminal.prepend(log);
+                    if(terminal.children.length > 8) terminal.lastChild.remove();
+                }
+            };
+            document.body.appendChild(script);
+        }
+        setInterval(updateDashboard, 3000);
+        updateDashboard();
+    </script>
+</body>
+</html>
